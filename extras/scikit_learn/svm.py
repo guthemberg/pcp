@@ -11,7 +11,7 @@ import sys
 from numpy import genfromtxt
 
 from time import gmtime, strftime
-n_features=7
+n_features=9
 
 test=""
 if (len(sys.argv)>1):
