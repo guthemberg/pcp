@@ -4,7 +4,7 @@
 #EXAMPLE
 ##split content_popularity.data into 10 files from /tmp/f1.data to /tmp/f10.data
 #
-##sh preproccesing_scripts/split_nfolds.sh data/content_popularity.data 10
+##sh split_nfolds.sh content_popularity.data 10
 
 PREFIX=/tmp/f
 rm -rf ${PREFIX}*
