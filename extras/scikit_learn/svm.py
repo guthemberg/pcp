@@ -135,7 +135,7 @@ class PopularityPredictorOneClassSVM(OneClassSVMClassifier):
     """
 
     def __init__(self,training_data, outliers_proportion=0.01):
-        OneClassSVMClassifier.__init__(self, training_data, outliers_proportion, base_nu, min_nu)
+        OneClassSVMClassifier.__init__(self, training_data, outliers_proportion)
     
     def predict(self,X):
         """
