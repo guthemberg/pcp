@@ -22,7 +22,7 @@ class SVMClassifier:
     
     """
     
-    def __init__(self,training_data):
+    def __init__(self,training_data,default_kernel="rbf"):
         """
         it requires a tab-separated training data where the latest
         column has binary outputs 
@@ -38,7 +38,7 @@ class SVMClassifier:
         self.scaler = preprocessing.Scaler()
         self.scaler.fit(np.hsplit(my_data,[n_features,n_col])[0])
         #define classifier
-        self.classifier = svm.SVC(class_weight='auto',cache_size=DEFAULT_CACHE_SIZE)
+        self.classifier = svm.SVC(class_weight='auto',cache_size=DEFAULT_CACHE_SIZE, kernel=default_kernel)
         self.classifier.fit(X, Y)
         
     def scale(self,X):
@@ -51,6 +51,7 @@ class SVMClassifier:
         set to the correct scale
         """
         return self.classifier.predict(X)
+
 
 class LinearSVMClassifier:
     """
@@ -96,7 +97,7 @@ class OneClassSVMClassifier:
     
     """
     
-    def __init__(self,training_data, outliers_proportion,base_nu=0.95,min_nu=0.05):
+    def __init__(self,training_data, outliers_proportion,base_nu=0.95,min_nu=0.05,default_kernel="rbf"):
         """
         it requires a tab-separated training data containing 
         common (unpopular) data
@@ -113,7 +114,7 @@ class OneClassSVMClassifier:
         self.scaler.fit(my_data)
 
         #define classifier
-        self.classifier = svm.OneClassSVM(nu=((base_nu*outliers_proportion)+min_nu), kernel="rbf", gamma=0.1, cache_size=DEFAULT_CACHE_SIZE)
+        self.classifier = svm.OneClassSVM(nu=((base_nu*outliers_proportion)+min_nu), kernel=default_kernel, gamma=0.1, cache_size=DEFAULT_CACHE_SIZE)
         self.classifier.fit(X)
         
     def scale(self,X):
@@ -360,12 +361,181 @@ def validate_one_class(normal,outliers):
     print output
     print "(%s) DONE." % (strftime("%Y-%m-%d %H:%M:%S", gmtime()))
     sys.exit(0)
+
+def validate_and_plot_one_class(normal,outliers):
+    """
+    checks which kernel methods is better for SVM
+    options: sigmoid and rbf (default method).
+
+    it requires a inputs tab-separated file
+    """
+    print "running a validation"
     
-def test(training_file, test_file):
+    #classifier
+    
+    train_data = genfromtxt(normal, delimiter='\t',skip_header=0)
+    test_data = genfromtxt(outliers, delimiter='\t',skip_header=0)
+
+    outliers_proportion = float(test_data.shape[0])/(float(train_data.shape[0])+float(test_data.shape[0]))
+    outliers_proportion=0.01
+
+    clf = OneClassSVMClassifier(normal,outliers_proportion,0.95,0.05)
+    #processing data without targets
+    X_train = clf.scale(train_data)
+    X_test = clf.scale(test_data)
+
+    y_pred_train = clf.predict(X_train)
+    y_pred_test = clf.predict(X_test)
+    n_error_train = y_pred_train[y_pred_train == 1].size
+    n_error_test = y_pred_test[y_pred_test == -1].size
+    
+    X=np.vstack((X_train,X_test))
+    y_score = clf.predict(X)
+
+    Y1=np.ones((X_train.shape[0],))
+    Y2=(np.ones((X_test.shape[0],))*-1)
+    y_true=np.concatenate((Y1,Y2))
+    
+    # Compute ROC curve and area the curve
+    fpr, tpr, thresholds = metrics.roc_curve(y_true,y_score)
+    roc_auc = metrics.auc(fpr, tpr)
+    print "Area under the ROC curve : %f" % roc_auc
+    
+    # Plot ROC curve
+
+    fig = matplotlib.pyplot.gcf()
+    fig.set_size_inches(6.5,6.5)
+    #font = {'family' : 'sans-serif',
+    #        'weight' : 'normal',
+    #        'size'   : 18}
+
+    #matplotlib.rc('font', **font)
+    pl.clf()
+    #modify plot area
+    #modify tick label font size
+    ax = pl.gca() # get the current axes
+    for l in ax.get_xticklabels() + ax.get_yticklabels():
+      l.set_fontsize('x-large')
+
+    #color from html code table, linewidth x2.0
+    pl.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc,color="#00CC66",linewidth=3.0)
+#    pl.plot(fpr_rbf, tpr_rbf, label='RBF: ROC curve (area = %0.2f)' % roc_auc_rbf,color="#009900",linewidth=3.0)
+#    pl.plot(fpr_sigmoid, tpr_sigmoid, label='Sigmoid: ROC curve (area = %0.2f)' % roc_auc_sigmoid,color='0.55',linewidth=2.0)
+#    pl.plot(fpr_linear, tpr_linear, label='Linear: ROC curve (area = %0.2f)' % roc_auc_linear,color='0.70',linewidth=2.0)
+#    pl.plot(fpr_poly, tpr_poly, label='Poly: ROC curve (area = %0.2f)' % roc_auc_poly,color='0.85',linewidth=2.0)
+    #for more lines with different kernels
+    #default_kernel="sigmoid";clf = hermes.OneClassSVMClassifier(train,0.00,0.0,0.0595,default_kernel);y_score_sigmoid = clf.predict(X);fpr_sigmoid, tpr_sigmoid, thresholds_sigmoid = metrics.roc_curve(y_true,y_score_sigmoid);roc_auc_sigmoid = metrics.auc(fpr_sigmoid, tpr_sigmoid);fpr_sigmoid;tpr_sigmoid;roc_auc_sigmoid
+    #pl.plot(fpr_rbf, tpr_rbf, label='RBF: ROC curve (area = %0.2f)' % roc_auc_rbf,color="#00CC66",linewidth=2.0)
+    #pl.plot(fpr_sigmoid, tpr_sigmoid, label='Sigmoid: ROC curve (area = %0.2f)' % roc_auc_sigmoid,color='0.55',linewidth=2.0)
+    #pl.plot(fpr_linear, tpr_linear, label='Linear: ROC curve (area = %0.2f)' % roc_auc_linear,color='0.70',linewidth=2.0)
+    #pl.plot(fpr_poly, tpr_poly, label='Poly: ROC curve (area = %0.2f)' % roc_auc_poly,color='0.85',linewidth=2.0)
+    pl.plot([0, 1], [0, 1], 'k--')
+    #modify base font size
+    pl.xlim([0.0, 1.0])
+    pl.ylim([0.0, 1.0])
+    pl.xlabel('False positive rate',fontsize='xx-large')
+    pl.ylabel('True positive rate',fontsize='xx-large')
+    #pl.title('Receiver operating characteristic example')
+    pl.legend(loc="lower right",prop={'size':18})
+    pl.show()
+    sys.exit(0)
+    ##the code here below was used to create the ROC curve for europar 13
+#import svm as hermes
+#import numpy as np
+#import pylab as pl
+#import matplotlib.font_manager
+#from scipy import stats
+#
+#from sklearn import svm, grid_search, metrics, preprocessing
+#from sklearn.covariance import EllipticEnvelope
+#
+#import sys
+#
+#from numpy import genfromtxt
+#
+#from time import gmtime, strftime
+#
+#DEFAULT_CACHE_SIZE=1500
+#
+#
+#train_dataset="/tmp/max_test/train.data_one_class.1"
+#test_dataset_normal="/tmp/max_test/train.data_one_class.2"
+#test_dataset_outliers="/tmp/max_test/test.data_one_class.2"
+#test_data_normal = genfromtxt(test_dataset_normal, delimiter='\t',skip_header=0)
+#test_data_outliers = genfromtxt(test_dataset_outliers, delimiter='\t',skip_header=0)
+#clf = hermes.OneClassSVMClassifier(train_dataset,0.0,0.0,0.0595)
+#
+#
+#X_train = clf.scale(test_data_normal)
+#X_test = clf.scale(test_data_outliers)
+#
+#Y1=np.ones((X_train.shape[0],))
+#Y2=(np.ones((X_test.shape[0],))*-1)
+#y_true=np.concatenate((Y1,Y2))
+#
+#X=np.vstack((X_train,X_test))
+#
+#y_score = clf.predict(X)
+#
+#fpr={}
+#tpr={}
+#thresholds={}
+#roc_auc={}
+#for kernel in ["rbf","linear","sigmoid","poly"]:
+#  print kernel
+#  clf = hermes.OneClassSVMClassifier(train_dataset,0.0,0.0,0.0595,kernel)
+#  X_train = clf.scale(test_data_normal)
+#  X_test = clf.scale(test_data_outliers)
+#  X=np.vstack((X_train,X_test))
+#  y_score = clf.predict(X)
+#  fpr_temp, tpr_temp, thresholds_temp = metrics.roc_curve(y_true,y_score)
+#  fpr[kernel]=fpr_temp
+#  tpr[kernel]=tpr_temp
+#  thresholds[kernel]=thresholds_temp
+#  roc_auc[kernel] = metrics.auc(fpr_temp, tpr_temp)
+#main_font_size=26
+#legend_font_size=22
+#fig = matplotlib.pyplot.gcf()
+#fig.set_size_inches(5.5,5.2)
+#font = {'family' : 'sans-serif',
+#        'weight' : 'normal',
+#        'size'   : main_font_size}
+#
+#matplotlib.rc('font', **font)
+#pl.clf()
+##modify plot area
+##modify tick label font size
+#ax = pl.gca() # get the current axes
+#for l in ax.get_xticklabels() + ax.get_yticklabels():
+#  l.set_fontsize('x-large')
+#
+##color from html code table, linewidth x2.0
+##pl.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc,color="#00CC66",linewidth=3.0)
+#pl.plot(fpr["rbf"], tpr["rbf"], label='RBF AUC = %0.2f' % roc_auc["rbf"],color="#009900",linewidth=3.0)
+#pl.plot(fpr["sigmoid"], tpr["sigmoid"], label='Sigmoid AUC = %0.2f' % roc_auc["sigmoid"],color='0.55',linewidth=2.0)
+#pl.plot(fpr["linear"], tpr["linear"], label='Linear AUC = %0.2f' % roc_auc["linear"],color='0.70',linewidth=2.0)
+#pl.plot(fpr["poly"], tpr["poly"], label='Poly AUC = %0.2f' % roc_auc["poly"],color='0.85',linewidth=2.0)
+##for more lines with different kernels
+##default_kernel="sigmoid";clf = hermes.OneClassSVMClassifier(train,0.00,0.0,0.0595,default_kernel);y_score_sigmoid = clf.predict(X);fpr_sigmoid, tpr_sigmoid, thresholds_sigmoid = metrics.roc_curve(y_true,y_score_sigmoid);roc_auc_sigmoid = metrics.auc(fpr_sigmoid, tpr_sigmoid);fpr_sigmoid;tpr_sigmoid;roc_auc_sigmoid
+##pl.plot(fpr_rbf, tpr_rbf, label='RBF: ROC curve (area = %0.2f)' % roc_auc_rbf,color="#00CC66",linewidth=2.0)
+##pl.plot(fpr_sigmoid, tpr_sigmoid, label='Sigmoid: ROC curve (area = %0.2f)' % roc_auc_sigmoid,color='0.55',linewidth=2.0)
+##pl.plot(fpr_linear, tpr_linear, label='Linear: ROC curve (area = %0.2f)' % roc_auc_linear,color='0.70',linewidth=2.0)
+##pl.plot(fpr_poly, tpr_poly, label='Poly: ROC curve (area = %0.2f)' % roc_auc_poly,color='0.85',linewidth=2.0)
+#pl.plot([0, 1], [0, 1], 'k--')
+##modify base font size
+#pl.xlim([0.0, 1.0])
+#pl.ylim([0.0, 1.0])
+#pl.xlabel('False positive rate',fontsize='xx-large')
+#pl.ylabel('True positive rate',fontsize='xx-large')
+##pl.title('Receiver operating characteristic example')
+#pl.legend(loc="lower right",prop={'size':legend_font_size})
+#pl.show()
+    
+def test(training_file, test_file,default_kernel="rbf"):
     print "testing..."
     sys.stdout.write("%s:training... "%(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
     sys.stdout.flush()
-    classifier = SVMClassifier(training_file)
+    classifier = SVMClassifier(training_file,default_kernel)
     print "(%s) DONE." % (strftime("%Y-%m-%d %H:%M:%S", gmtime()))
     #train_classifier(training_file)
 
@@ -396,7 +566,7 @@ def test(training_file, test_file):
         print metrics.classification_report(Y,predictions)
         print "report for the rarest class: "
         print metrics.classification_report(Y,predictions,labels=[1])
-    sys.exit(0)
+
     
 def test_linear(training_file, test_file):
     print "testing..."
@@ -461,10 +631,13 @@ if __name__ == "__main__":
         validate(training_file)
     elif option=="test":
         test(training_file, test_file)
+        sys.exit(0)
     elif option=="once":
         validate_one_class(training_file, test_file)
     elif option=="test_linear":
         test_linear(training_file, test_file)
+    elif option=="plot_roc":
+        validate_and_plot_one_class(training_file, test_file)
     #my_data = genfromtxt("/tmp/f1.data", delimiter='\t',skip_header=0)
     #for testing
     #X = preprocessing.scale(np.hsplit(my_data,[9,10])[0])
