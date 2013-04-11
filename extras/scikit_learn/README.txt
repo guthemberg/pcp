@@ -22,3 +22,7 @@ then run pilot for listening to predictions requests
   151  /home/guthemberg/Documents/workplace/pilot/pilotd start
   152  ps xau|grep pilot
 
+
+note:
+	* traning data might be gerenerated (such as that for euro-par 13) using general/input/youtube_100req_4000cli_4hour_1min_1000_pareto_020M_wl2 of /media/DisqueC/Temp/november12_analysis/aren
+	* obj_state.log_THE_BEST_ONE has been copied to /media/DisqueC/Temp/november12_analysis/aren directory
